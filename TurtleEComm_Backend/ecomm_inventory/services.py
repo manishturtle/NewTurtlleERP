@@ -21,7 +21,7 @@ from .models import (
     Lot,
     LotStatus
 )
-from products.models import Product
+from ecomm_product.models import Product
 from django.contrib.auth import get_user_model
 
 User = get_user_model()

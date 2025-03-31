@@ -1,7 +1,7 @@
 import django_filters
 from django.db.models import F, ExpressionWrapper, fields, Q
 from .models import Inventory, FulfillmentLocation, SerializedInventory, Lot
-from products.models import Product
+from ecomm_product.models import Product
 from .models import SerialNumberStatus
 from django.utils import timezone
 

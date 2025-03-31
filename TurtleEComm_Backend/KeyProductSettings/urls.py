@@ -36,6 +36,9 @@ urlpatterns = [
     # Inventory management routes
     path('api/<str:tenant_slug>/inventory/', include('ecomm_inventory.urls', namespace='inventory')),
     
+    # Product management routes
+    path('api/<str:tenant_slug>/products/', include('ecomm_product.urls', namespace='products')),
+    
     # Public API endpoints (if any)
     path('api/public/', include('KeyProductSettings.urls_public', namespace='public_api')),
     

@@ -1,32 +1,47 @@
 from django.contrib import admin
-from .models import Category, Product, StockItem, InventoryTransaction
+from .models import (
+    FulfillmentLocation,
+    AdjustmentReason,
+    Inventory,
+    InventoryAdjustment,
+    SerializedInventory,
+    Lot
+)
 
 # Register your models here.
 
-@admin.register(Category)
-class CategoryAdmin(admin.ModelAdmin):
-    list_display = ('name', 'parent', 'created_at', 'updated_at')
-    list_filter = ('parent',)
-    search_fields = ('name', 'description')
-    readonly_fields = ('created_at', 'updated_at')
+@admin.register(FulfillmentLocation)
+class FulfillmentLocationAdmin(admin.ModelAdmin):
+    list_display = ('name', 'location_type', 'is_active')
+    list_filter = ('location_type', 'is_active')
+    search_fields = ('name',)
 
-@admin.register(Product)
-class ProductAdmin(admin.ModelAdmin):
-    list_display = ('name', 'sku', 'category', 'price', 'is_active', 'created_at')
-    list_filter = ('category', 'is_active')
-    search_fields = ('name', 'sku', 'barcode', 'description')
-    readonly_fields = ('created_at', 'updated_at')
+@admin.register(AdjustmentReason)
+class AdjustmentReasonAdmin(admin.ModelAdmin):
+    list_display = ('name', 'is_active')
+    list_filter = ('is_active',)
+    search_fields = ('name',)
 
-@admin.register(StockItem)
-class StockItemAdmin(admin.ModelAdmin):
-    list_display = ('product', 'quantity', 'location', 'batch_number', 'expiry_date', 'created_at')
-    list_filter = ('location', 'expiry_date')
-    search_fields = ('product__name', 'product__sku', 'batch_number', 'location')
-    readonly_fields = ('created_at', 'updated_at')
+@admin.register(Inventory)
+class InventoryAdmin(admin.ModelAdmin):
+    list_display = ('product', 'location', 'stock_quantity', 'reserved_quantity')
+    list_filter = ('location',)
+    search_fields = ('product__name', 'location__name')
 
-@admin.register(InventoryTransaction)
-class InventoryTransactionAdmin(admin.ModelAdmin):
-    list_display = ('product', 'transaction_type', 'quantity', 'reference', 'created_at')
-    list_filter = ('transaction_type', 'created_at')
-    search_fields = ('product__name', 'product__sku', 'reference', 'notes')
-    readonly_fields = ('created_at', 'updated_at')
+@admin.register(InventoryAdjustment)
+class InventoryAdjustmentAdmin(admin.ModelAdmin):
+    list_display = ('inventory', 'adjustment_type', 'quantity_change', 'timestamp')
+    list_filter = ('adjustment_type', 'reason')
+    search_fields = ('inventory__product__name', 'notes')
+
+@admin.register(SerializedInventory)
+class SerializedInventoryAdmin(admin.ModelAdmin):
+    list_display = ('product', 'serial_number', 'location', 'status')
+    list_filter = ('status', 'location')
+    search_fields = ('serial_number', 'product__name')
+
+@admin.register(Lot)
+class LotAdmin(admin.ModelAdmin):
+    list_display = ('product', 'lot_number', 'location', 'quantity', 'status', 'expiry_date')
+    list_filter = ('status', 'location', 'expiry_date')
+    search_fields = ('lot_number', 'product__name')

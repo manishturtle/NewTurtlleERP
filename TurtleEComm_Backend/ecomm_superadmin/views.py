@@ -9,10 +9,13 @@ from rest_framework.permissions import IsAuthenticated, IsAdminUser, AllowAny
 from django.contrib.auth import authenticate, login, get_user_model
 from django.db import connection
 from django.db import transaction
+from django.views.decorators.csrf import csrf_exempt
+from django.utils.decorators import method_decorator
 
 from .models import Tenant, User, CrmClient
 from .serializers import TenantSerializer, LoginSerializer, UserSerializer, UserAdminSerializer, CrmClientSerializer
 
+@method_decorator(csrf_exempt, name='dispatch')
 class PlatformAdminTenantView(APIView):
     """
     API endpoint that allows platform admins to manage tenants.
@@ -163,6 +166,7 @@ class PlatformAdminTenantView(APIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
+@method_decorator(csrf_exempt, name='dispatch')
 class PlatformAdminLoginView(APIView):
     """
     API endpoint for platform admin login.
@@ -223,6 +227,7 @@ class PlatformAdminLoginView(APIView):
         
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+@method_decorator(csrf_exempt, name='dispatch')
 class PlatformAdminCheckUserExistsView(APIView):
     """
     API endpoint to check if a user exists.
@@ -254,6 +259,7 @@ class PlatformAdminCheckUserExistsView(APIView):
             'is_staff': is_staff
         })
 
+@method_decorator(csrf_exempt, name='dispatch')
 class PlatformAdminViewSet(viewsets.ModelViewSet):
     """
     API endpoint that allows platform admins to manage users.
@@ -339,6 +345,7 @@ class PlatformAdminViewSet(viewsets.ModelViewSet):
             'message': 'User deleted successfully'
         }, status=status.HTTP_200_OK)
 
+@method_decorator(csrf_exempt, name='dispatch')
 class CrmClientViewSet(viewsets.ModelViewSet):
     """
     API endpoint that allows CRM clients to be viewed or edited.

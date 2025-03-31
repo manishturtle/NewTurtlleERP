@@ -44,6 +44,9 @@ SHARED_APPS = (
     'rest_framework',
     'rest_framework.authtoken',     # Links to ecomm_superadmin.User (shared)
     'rest_framework_simplejwt', # Links to ecomm_superadmin.User (shared)
+        'ecomm_inventory',
+    'ecomm_product',  # Product management app
+    
 )
 
 TENANT_APPS = (
@@ -58,9 +61,7 @@ TENANT_APPS = (
     #'rest_framework_simplejwt',
     #'corsheaders',
     'ecomm_tenant.ecomm_tenant_admins',
-    'ecomm_inventory',
     # 'ecomm_tenant_crmclients',  # Commented out non-existent app
-    # other tenant apps...
 )
 
 INSTALLED_APPS = list(SHARED_APPS) + [app for app in TENANT_APPS if app not in SHARED_APPS]
@@ -73,6 +74,7 @@ MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
+    'ecomm_superadmin.middleware.CSRFExemptAPIMiddleware',  # Our custom CSRF exempt middleware
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
@@ -221,6 +223,21 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://localhost:3001",
     "http://localhost:3002",
+    "http://localhost:8000",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:3001",
+    "http://127.0.0.1:3002",
+    "http://127.0.0.1:8000",
+]
+
+# CSRF settings
+CSRF_COOKIE_SECURE = False  # Set to True in production with HTTPS
+CSRF_COOKIE_HTTPONLY = False  # Allow JavaScript to access the cookie
+CSRF_USE_SESSIONS = False  # Store CSRF token in cookie, not session
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:3000",
+    "http://localhost:3001",
+    "http://localhost:3002", 
     "http://localhost:8000",
     "http://127.0.0.1:3000",
     "http://127.0.0.1:3001",

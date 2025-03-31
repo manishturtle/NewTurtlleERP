@@ -2,7 +2,6 @@ from rest_framework import serializers
 from django.core.validators import RegexValidator
 from .models import (
     FulfillmentLocation,
-    Product,
     Inventory,
     InventoryAdjustment,
     AdjustmentReason,
@@ -10,6 +9,7 @@ from .models import (
     AdjustmentType,
     Lot
 )
+from ecomm_product.models import Product
 from django.utils import timezone
 import warnings
 

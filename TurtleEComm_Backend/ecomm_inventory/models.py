@@ -1,12 +1,11 @@
 from django.db import models, connection
+from django.db.models import Sum, F, Q
 from django.conf import settings
 from django.core.validators import MinValueValidator
 from django.core.exceptions import ValidationError
 from django.utils import timezone
-from products.models import Product
-from tenants.models import TenantAwareModel
 
-class InventoryAwareModel(TenantAwareModel):
+class InventoryAwareModel(models.Model):
     """
     Abstract base model for all inventory-related models.
     Ensures that inventory models are stored in the tenant's inventory schema.
@@ -235,7 +234,7 @@ class AdjustmentReason(InventoryAwareModel):
 
 class Inventory(InventoryAwareModel):
     product = models.ForeignKey(
-        Product, 
+        'ecomm_product.Product', 
         on_delete=models.CASCADE, 
         related_name='inventory_levels'
     )
@@ -297,7 +296,7 @@ class Inventory(InventoryAwareModel):
 
 class SerializedInventory(InventoryAwareModel):
     product = models.ForeignKey(
-        Product, 
+        'ecomm_product.Product', 
         on_delete=models.CASCADE, 
         related_name='serial_numbers',
         limit_choices_to={'is_serialized': True}
@@ -372,7 +371,7 @@ class Lot(InventoryAwareModel):
     or other batch-specific attributes.
     """
     product = models.ForeignKey(
-        Product, 
+        'ecomm_product.Product', 
         on_delete=models.CASCADE, 
         related_name='lots',
         limit_choices_to={'is_lotted': True}
@@ -463,6 +462,7 @@ class Lot(InventoryAwareModel):
         
         if self.product_id:
             try:
+                from ecomm_product.models import Product
                 product = Product.objects.get(id=self.product_id)
                 if not product.is_lotted:
                     raise ValidationError(f"Product {product.sku} is not marked for lot tracking.")

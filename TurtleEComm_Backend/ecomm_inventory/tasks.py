@@ -2,16 +2,16 @@ import io
 import csv
 from celery import shared_task
 from django_tenants.utils import tenant_context
-from tenants.models import Tenant
+from ecomm_superadmin.models import Tenant
 from django.core.exceptions import ObjectDoesNotExist, ValidationError as DjangoValidationError
 from django.contrib.auth.models import User
 from .models import (
-    Product, 
     FulfillmentLocation, 
     Inventory, 
     AdjustmentReason, 
     AdjustmentType
 )
+from ecomm_product.models import Product
 from .services import perform_inventory_adjustment
 
 @shared_task(bind=True)

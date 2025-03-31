@@ -12,6 +12,9 @@ from .views import (
     AdjustmentTypeView
 )
 
+# Define app_name for namespace
+app_name = 'inventory'
+
 # Create a top-level router
 router = DefaultRouter()
 router.register(r'fulfillment-locations', FulfillmentLocationViewSet, basename='fulfillmentlocation')

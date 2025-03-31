@@ -39,7 +39,6 @@ from celery.result import AsyncResult
 from rest_framework_csv.renderers import CSVRenderer
 from datetime import datetime
 from .services import perform_inventory_adjustment, update_serialized_status, reserve_serialized_item, ship_serialized_item, receive_serialized_item, find_available_serial_for_reservation
-from tenants.mixins import TenantViewMixin
 
 # Create your views here.
 
@@ -48,7 +47,7 @@ class StandardResultsSetPagination(PageNumberPagination):
     page_size_query_param = 'page_size'
     max_page_size = 100
 
-class FulfillmentLocationViewSet(TenantViewMixin, viewsets.ModelViewSet):
+class FulfillmentLocationViewSet(viewsets.ModelViewSet):
     """
     API endpoint that allows Fulfillment Locations to be viewed or edited.
     
@@ -104,7 +103,7 @@ class FulfillmentLocationViewSet(TenantViewMixin, viewsets.ModelViewSet):
             )
         instance.delete()
 
-class AdjustmentReasonViewSet(TenantViewMixin, viewsets.ModelViewSet):
+class AdjustmentReasonViewSet(viewsets.ModelViewSet):
     """
     API endpoint for managing Inventory Adjustment Reasons.
     
@@ -156,7 +155,7 @@ class AdjustmentReasonViewSet(TenantViewMixin, viewsets.ModelViewSet):
             )
         instance.delete()
 
-class InventoryViewSet(TenantViewMixin, viewsets.ModelViewSet):
+class InventoryViewSet(viewsets.ModelViewSet):
     """
     API endpoint for managing Inventory levels.
     
@@ -244,8 +243,8 @@ class InventoryViewSet(TenantViewMixin, viewsets.ModelViewSet):
         
         # Ensure we're using the inventory schema in the search path
         if hasattr(connection, 'inventory_schema') and hasattr(connection, 'schema_name'):
-            with connection.cursor() as cursor:
-                cursor.execute(f'SET search_path TO "{connection.inventory_schema}", "{connection.schema_name}", public')
+            with connection.cursor() as cur:
+                cur.execute(f'SET search_path TO "{connection.inventory_schema}", "{connection.schema_name}", public')
         
         inventory = self.get_object()
         lots = Lot.objects.filter(inventory_record=inventory)
@@ -278,8 +277,8 @@ class InventoryViewSet(TenantViewMixin, viewsets.ModelViewSet):
         
         # Ensure we're using the inventory schema in the search path
         if hasattr(connection, 'inventory_schema') and hasattr(connection, 'schema_name'):
-            with connection.cursor() as cursor:
-                cursor.execute(f'SET search_path TO "{connection.inventory_schema}", "{connection.schema_name}", public')
+            with connection.cursor() as cur:
+                cur.execute(f'SET search_path TO "{connection.inventory_schema}", "{connection.schema_name}", public')
         
         inventory = self.get_object()
         
@@ -332,8 +331,8 @@ class InventoryViewSet(TenantViewMixin, viewsets.ModelViewSet):
         
         # Ensure we're using the inventory schema in the search path
         if hasattr(connection, 'inventory_schema') and hasattr(connection, 'schema_name'):
-            with connection.cursor() as cursor:
-                cursor.execute(f'SET search_path TO "{connection.inventory_schema}", "{connection.schema_name}", public')
+            with connection.cursor() as cur:
+                cur.execute(f'SET search_path TO "{connection.inventory_schema}", "{connection.schema_name}", public')
         
         inventory = self.get_object()
         
@@ -385,8 +384,8 @@ class InventoryViewSet(TenantViewMixin, viewsets.ModelViewSet):
         
         # Ensure we're using the inventory schema in the search path
         if hasattr(connection, 'inventory_schema') and hasattr(connection, 'schema_name'):
-            with connection.cursor() as cursor:
-                cursor.execute(f'SET search_path TO "{connection.inventory_schema}", "{connection.schema_name}", public')
+            with connection.cursor() as cur:
+                cur.execute(f'SET search_path TO "{connection.inventory_schema}", "{connection.schema_name}", public')
         
         inventory = self.get_object()
         
@@ -437,8 +436,8 @@ class InventoryViewSet(TenantViewMixin, viewsets.ModelViewSet):
         
         # Ensure we're using the inventory schema in the search path
         if hasattr(connection, 'inventory_schema') and hasattr(connection, 'schema_name'):
-            with connection.cursor() as cursor:
-                cursor.execute(f'SET search_path TO "{connection.inventory_schema}", "{connection.schema_name}", public')
+            with connection.cursor() as cur:
+                cur.execute(f'SET search_path TO "{connection.inventory_schema}", "{connection.schema_name}", public')
         
         inventory = self.get_object()
         
@@ -474,7 +473,7 @@ class InventoryViewSet(TenantViewMixin, viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-class InventoryAdjustmentViewSet(TenantViewMixin, viewsets.ModelViewSet):
+class InventoryAdjustmentViewSet(viewsets.ModelViewSet):
     """
     API endpoint for creating manual Inventory Adjustments
     and listing adjustment history for a specific inventory item.
@@ -517,7 +516,7 @@ class InventoryAdjustmentViewSet(TenantViewMixin, viewsets.ModelViewSet):
                 expiry_date=expiry_date
             )
 
-class SerializedInventoryViewSet(TenantViewMixin, viewsets.ModelViewSet):
+class SerializedInventoryViewSet(viewsets.ModelViewSet):
     """
     API endpoint for viewing and updating the status of Serialized Inventory items.
     Creation/Deletion might be handled by other processes (e.g., receiving, shipping).
@@ -595,7 +594,7 @@ class SerializedInventoryViewSet(TenantViewMixin, viewsets.ModelViewSet):
         except DjangoValidationError as e:
             raise DRFValidationError(detail=str(e))
 
-class LotViewSet(TenantViewMixin, viewsets.ModelViewSet):
+class LotViewSet(viewsets.ModelViewSet):
     """
     API endpoint for managing Inventory Lots.
     
@@ -636,8 +635,8 @@ class LotViewSet(TenantViewMixin, viewsets.ModelViewSet):
         
         # Ensure we're using the inventory schema in the search path
         if hasattr(connection, 'inventory_schema') and hasattr(connection, 'schema_name'):
-            with connection.cursor() as cursor:
-                cursor.execute(f'SET search_path TO "{connection.inventory_schema}", "{connection.schema_name}", public')
+            with connection.cursor() as cur:
+                cur.execute(f'SET search_path TO "{connection.inventory_schema}", "{connection.schema_name}", public')
         
         # Get the queryset with tenant filtering from TenantViewMixin
         return super().get_queryset()
@@ -650,8 +649,8 @@ class LotViewSet(TenantViewMixin, viewsets.ModelViewSet):
         
         # Ensure we're using the inventory schema in the search path
         if hasattr(connection, 'inventory_schema') and hasattr(connection, 'schema_name'):
-            with connection.cursor() as cursor:
-                cursor.execute(f'SET search_path TO "{connection.inventory_schema}", "{connection.schema_name}", public')
+            with connection.cursor() as cur:
+                cur.execute(f'SET search_path TO "{connection.inventory_schema}", "{connection.schema_name}", public')
         
         # Save the instance
         serializer.save()
@@ -665,8 +664,8 @@ class LotViewSet(TenantViewMixin, viewsets.ModelViewSet):
         
         # Ensure we're using the inventory schema in the search path
         if hasattr(connection, 'inventory_schema') and hasattr(connection, 'schema_name'):
-            with connection.cursor() as cursor:
-                cursor.execute(f'SET search_path TO "{connection.inventory_schema}", "{connection.schema_name}", public')
+            with connection.cursor() as cur:
+                cur.execute(f'SET search_path TO "{connection.inventory_schema}", "{connection.schema_name}", public')
         
         old_instance = self.get_object()
         old_quantity = old_instance.quantity
@@ -695,71 +694,54 @@ class AdjustmentTypeView(APIView):
         ]
         return Response(adjustment_types)
 
-class InventoryImportView(TenantViewMixin, APIView):
+class InventoryImportView(APIView):
     """
     Upload a CSV file to asynchronously import inventory data.
     Expects 'file' field in multipart/form-data.
     """
     permission_classes = [permissions.IsAuthenticated, permissions.IsAdminUser]
     parser_classes = [MultiPartParser, FormParser]
-
-    def post(self, request, *args, **kwargs):
+    
+    def post(self, request, format=None):
         serializer = InventoryImportSerializer(data=request.data)
         if serializer.is_valid():
             csv_file = serializer.validated_data['file']
             
-            # Get the current tenant
-            tenant = self.get_tenant()
-            if not tenant:
-                return Response(
-                    {"error": "No tenant context available for this import"},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-                
-            # Start async task with tenant info
+            # Start async task
             task = process_inventory_import.delay(
-                csv_file.read().decode('utf-8'),
-                tenant_id=tenant.id,
-                tenant_schema=tenant.schema_name,
+                file_content_str=csv_file.read().decode('utf-8'),
+                tenant_id=1,  # Default tenant ID, adjust as needed
                 user_id=request.user.id
             )
             
             return Response({
-                "task_id": task.id,
-                "status": "PENDING",
-                "message": "Inventory import started. Check status with GET request using task_id."
+                'task_id': task.id,
+                'status': 'PENDING',
+                'message': 'Inventory import started. Check task status for updates.'
             }, status=status.HTTP_202_ACCEPTED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
-    def get(self, request, *args, **kwargs):
+    def get(self, request, format=None):
         """
-        Check the status of an import task.
-        Requires task_id query parameter.
+        Check status of an inventory import task.
+        Requires task_id parameter.
         """
         task_id = request.query_params.get('task_id')
         if not task_id:
             return Response(
-                {"error": "task_id query parameter is required"},
+                {"error": "task_id parameter is required"},
                 status=status.HTTP_400_BAD_REQUEST
             )
             
-        task_result = AsyncResult(task_id)
+        result = AsyncResult(task_id)
+        response_data = {
+            "task_id": task_id,
+            "status": result.status,
+        }
         
-        if task_result.ready():
-            if task_result.successful():
-                return Response({
-                    "task_id": task_id,
-                    "status": "SUCCESS",
-                    "result": task_result.result
-                })
-            else:
-                return Response({
-                    "task_id": task_id,
-                    "status": "FAILURE",
-                    "error": str(task_result.result)
-                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        else:
-            return Response({
-                "task_id": task_id,
-                "status": "PENDING"
-            }, status=status.HTTP_200_OK)
+        if result.successful():
+            response_data["result"] = result.get()
+        elif result.failed():
+            response_data["error"] = str(result.result)
+            
+        return Response(response_data)
