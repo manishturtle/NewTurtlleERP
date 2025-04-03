@@ -58,6 +58,27 @@ class TenantAwareViewSet(viewsets.ModelViewSet):
     This class ensures that data is properly isolated per tenant.
     """
     
+    def dispatch(self, request, *args, **kwargs):
+        """
+        Override dispatch to ensure tables exist before processing any request.
+        """
+        # Get the model class for this viewset
+        model_class = self.get_serializer_class().Meta.model
+        
+        # If the model inherits from InventoryAwareModel, ensure its table exists
+        if hasattr(model_class, 'create_table_if_not_exists'):
+            # Log the attempt to create table
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.info(f"Checking if table exists for model {model_class.__name__}")
+            
+            # Create the table if it doesn't exist
+            table_created = model_class.create_table_if_not_exists()
+            logger.info(f"Table creation result for {model_class.__name__}: {table_created}")
+        
+        # Continue with normal dispatch
+        return super().dispatch(request, *args, **kwargs)
+    
     def get_queryset(self):
         """
         Return queryset for the current tenant.

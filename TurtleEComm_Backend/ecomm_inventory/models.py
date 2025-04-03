@@ -37,11 +37,95 @@ class InventoryAwareModel(models.Model):
     def create_table_if_not_exists(cls):
         """
         Create the table in the current tenant schema if it doesn't exist.
-        This method is kept for backward compatibility.
         """
-        # Tables are now automatically created in the tenant's schema
-        # through normal Django migrations, so we don't need to do anything here
-        pass
+        from django.db import connection
+        import logging
+        
+        logger = logging.getLogger(__name__)
+        
+        # Get the current schema name
+        schema_name = connection.schema_name
+        logger.info(f"Checking if table exists in schema {schema_name}")
+        
+        # Get the table name
+        table_name = cls._meta.db_table
+        
+        # Check if the table exists in the current schema
+        with connection.cursor() as cursor:
+            # Format the query to check if the table exists in the current schema
+            query = """
+                SELECT EXISTS (
+                    SELECT FROM information_schema.tables 
+                    WHERE table_schema = %s
+                    AND table_name = %s
+                );
+            """
+            cursor.execute(query, [schema_name, table_name])
+            table_exists = cursor.fetchone()[0]
+            
+            if not table_exists:
+                logger.info(f"Table {table_name} does not exist in schema {schema_name}. Creating it now.")
+                
+                # If table doesn't exist, create it directly using SQL
+                try:
+                    # Create the table based on the model definition
+                    # This is a simplified version for FulfillmentLocation
+                    if table_name == 'ecomm_inventory_fulfillmentlocation':
+                        create_table_sql = f"""
+                        CREATE TABLE "{schema_name}"."{table_name}" (
+                            "id" serial NOT NULL PRIMARY KEY,
+                            "created_at" timestamp with time zone NOT NULL,
+                            "updated_at" timestamp with time zone NOT NULL,
+                            "client_id" integer NOT NULL,
+                            "company_id" integer NOT NULL,
+                            "created_by_id" integer NULL,
+                            "updated_by_id" integer NULL,
+                            "name" varchar(255) NOT NULL,
+                            "location_type" varchar(50) NOT NULL,
+                            "address_line_1" varchar(255) NULL,
+                            "address_line_2" varchar(255) NULL,
+                            "city" varchar(100) NULL,
+                            "state_province" varchar(100) NULL,
+                            "postal_code" varchar(20) NULL,
+                            "country_code" varchar(2) NULL,
+                            "latitude" double precision NULL,
+                            "longitude" double precision NULL,
+                            "is_active" boolean NOT NULL,
+                            "notes" text NULL
+                        );
+                        """
+                        cursor.execute(create_table_sql)
+                        
+                        # Add foreign key constraints
+                        fk_sql = f"""
+                        ALTER TABLE "{schema_name}"."{table_name}" 
+                        ADD CONSTRAINT "ecomm_inventory_fulfillmentlocation_created_by_id_fkey" 
+                        FOREIGN KEY ("created_by_id") REFERENCES "{schema_name}"."auth_user" ("id") DEFERRABLE INITIALLY DEFERRED;
+                        
+                        ALTER TABLE "{schema_name}"."{table_name}" 
+                        ADD CONSTRAINT "ecomm_inventory_fulfillmentlocation_updated_by_id_fkey" 
+                        FOREIGN KEY ("updated_by_id") REFERENCES "{schema_name}"."auth_user" ("id") DEFERRABLE INITIALLY DEFERRED;
+                        """
+                        try:
+                            cursor.execute(fk_sql)
+                        except Exception as e:
+                            logger.warning(f"Could not create foreign key constraints: {str(e)}")
+                        
+                        logger.info(f"Successfully created table {table_name} in schema {schema_name}")
+                        return True
+                    else:
+                        # For other tables, try running migrations
+                        from django.core.management import call_command
+                        logger.info("Attempting to run migrations for inventory app")
+                        call_command('migrate', 'ecomm_inventory', interactive=False, verbosity=0)
+                        return True
+                except Exception as e:
+                    logger.error(f"Error creating table {table_name} in schema {schema_name}: {str(e)}")
+                    return False
+            else:
+                logger.info(f"Table {table_name} already exists in schema {schema_name}")
+        
+        return True
 
     @classmethod
     def get_db_table(cls):
