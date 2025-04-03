@@ -8,7 +8,7 @@ from django.utils import timezone
 class InventoryAwareModel(models.Model):
     """
     Abstract base model for all inventory-related models.
-    Ensures that inventory models are stored in the tenant's inventory schema.
+    Includes common fields needed across inventory models.
     """
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
@@ -32,65 +32,42 @@ class InventoryAwareModel(models.Model):
     
     class Meta:
         abstract = True
-        
+    
+    @classmethod
+    def create_table_if_not_exists(cls):
+        """
+        Create the table in the current tenant schema if it doesn't exist.
+        This method is kept for backward compatibility.
+        """
+        # Tables are now automatically created in the tenant's schema
+        # through normal Django migrations, so we don't need to do anything here
+        pass
+
     @classmethod
     def get_db_table(cls):
         """
-        Returns the database table name with the inventory schema prefix.
+        Returns the database table name.
         """
-        if hasattr(connection, 'inventory_schema'):
-            return f'"{connection.inventory_schema}"."{cls._meta.db_table}"'
         return cls._meta.db_table
     
     @classmethod
     def check_table_exists(cls):
         """
-        Check if the table exists in the inventory schema.
+        Check if the table exists.
         """
-        if hasattr(connection, 'inventory_schema'):
-            with connection.cursor() as cursor:
-                cursor.execute(f"""
-                    SELECT EXISTS (
-                        SELECT FROM information_schema.tables 
-                        WHERE table_schema = %s
-                        AND table_name = %s
-                    )
-                """, [connection.inventory_schema, cls._meta.db_table])
-                return cursor.fetchone()[0]
-        return False
-    
-    @classmethod
-    def create_table_if_not_exists(cls):
-        """
-        Create the table in the inventory schema if it doesn't exist.
-        """
-        if hasattr(connection, 'inventory_schema') and not cls.check_table_exists():
-            from django.apps import apps
-            from django.db import models
-            
-            # Get the model's fields
-            fields = []
-            for field in cls._meta.fields:
-                if isinstance(field, models.AutoField):
-                    fields.append(f"{field.column} SERIAL PRIMARY KEY")
-                elif isinstance(field, models.CharField):
-                    fields.append(f"{field.column} VARCHAR({field.max_length})")
-                # Add more field types as needed
-            
-            # Create the table
-            with connection.cursor() as cursor:
-                cursor.execute(f"""
-                    CREATE TABLE IF NOT EXISTS "{connection.inventory_schema}"."{cls._meta.db_table}" (
-                        {', '.join(fields)}
-                    )
-                """)
+        with connection.cursor() as cursor:
+            cursor.execute(f"""
+                SELECT EXISTS (
+                    SELECT FROM information_schema.tables 
+                    WHERE table_name = %s
+                )
+            """, [cls._meta.db_table])
+            return cursor.fetchone()[0]
     
     def get_table_name(self):
         """
         Returns the fully qualified table name for this model instance.
         """
-        if hasattr(connection, 'inventory_schema'):
-            return f'"{connection.inventory_schema}"."{self.__class__._meta.db_table}"'
         return self.__class__._meta.db_table
         
     def save(self, *args, **kwargs):
@@ -113,48 +90,40 @@ class InventoryAwareModel(models.Model):
         if not self.company_id:
             self.company_id = 1
             
-        # Use the inventory schema for saving
-        if hasattr(connection, 'inventory_schema'):
-            # Ensure the table exists in the inventory schema
-            self.__class__.create_table_if_not_exists()
+        # Use the tenant schema for saving
+        with connection.cursor() as cursor:
+            # Set search path to prioritize tenant schema
+            cursor.execute(f'SET search_path TO "{connection.schema_name}", public')
             
-            # Direct SQL insert/update to ensure it goes to the correct schema
-            with connection.cursor() as cursor:
-                # Set search path to prioritize inventory schema
-                cursor.execute(f'SET search_path TO "{connection.inventory_schema}", "{connection.schema_name}", public')
-                
-                # Get field values
-                fields = {}
-                for field in self.__class__._meta.fields:
-                    if not field.primary_key or self.pk:  # Skip auto-incrementing PK on insert
-                        fields[field.column] = getattr(self, field.name)
-                
-                if self.pk:
-                    # UPDATE
-                    set_clause = ", ".join([f"{k} = %s" for k in fields.keys()])
-                    values = list(fields.values())
-                    values.append(self.pk)
-                    cursor.execute(
-                        f'UPDATE "{connection.inventory_schema}"."{self.__class__._meta.db_table}" SET {set_clause} WHERE id = %s',
-                        values
-                    )
-                else:
-                    # INSERT
-                    columns = ", ".join(fields.keys())
-                    placeholders = ", ".join(["%s"] * len(fields))
-                    values = list(fields.values())
-                    cursor.execute(
-                        f'INSERT INTO "{connection.inventory_schema}"."{self.__class__._meta.db_table}" ({columns}) VALUES ({placeholders}) RETURNING id',
-                        values
-                    )
-                    # Set the new ID
-                    self.pk = cursor.fetchone()[0]
-                
-                # Reset search path
-                cursor.execute(f'SET search_path TO "{connection.schema_name}", "{connection.inventory_schema}", public')
-        else:
-            # Fall back to Django ORM if no inventory schema
-            super().save(*args, **kwargs)
+            # Get field values
+            fields = {}
+            for field in self.__class__._meta.fields:
+                if not field.primary_key or self.pk:  # Skip auto-incrementing PK on insert
+                    fields[field.column] = getattr(self, field.name)
+            
+            if self.pk:
+                # UPDATE
+                set_clause = ", ".join([f"{k} = %s" for k in fields.keys()])
+                values = list(fields.values())
+                values.append(self.pk)
+                cursor.execute(
+                    f'UPDATE "{self.__class__._meta.db_table}" SET {set_clause} WHERE id = %s',
+                    values
+                )
+            else:
+                # INSERT
+                columns = ", ".join(fields.keys())
+                placeholders = ", ".join(["%s"] * len(fields))
+                values = list(fields.values())
+                cursor.execute(
+                    f'INSERT INTO "{self.__class__._meta.db_table}" ({columns}) VALUES ({placeholders}) RETURNING id',
+                    values
+                )
+                # Set the new ID
+                self.pk = cursor.fetchone()[0]
+            
+            # Reset search path
+            cursor.execute(f'SET search_path TO public, "{connection.schema_name}"')
 
 class LocationType(models.TextChoices):
     WAREHOUSE = 'WAREHOUSE', 'Warehouse'

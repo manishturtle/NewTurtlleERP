@@ -266,6 +266,53 @@ class TenantSerializer(serializers.ModelSerializer):
                     tenant.trial_end_date = datetime.now().date() + timedelta(days=30)
                     tenant.save(update_fields=['trial_end_date'])
                 
+                # Initialize inventory data for the tenant
+                try:
+                    # Import inventory models to initialize their tables
+                    from ecomm_inventory.models import (
+                        FulfillmentLocation,
+                        AdjustmentReason,
+                        Inventory,
+                        InventoryAdjustment,
+                        SerializedInventory,
+                        Lot
+                    )
+                    
+                    # Create default fulfillment location
+                    default_location = FulfillmentLocation(
+                        name="Main Warehouse",
+                        location_type="WAREHOUSE",
+                        is_active=True,
+                        created_by=admin_user
+                    )
+                    default_location.save()
+                    print(f"Created default fulfillment location in tenant schema {tenant.schema_name}")
+                    
+                    # Create default adjustment reasons
+                    default_reasons = [
+                        {"name": "Initial Stock", "description": "Initial inventory setup"},
+                        {"name": "Cycle Count", "description": "Adjustment from inventory count"},
+                        {"name": "Damaged Goods", "description": "Items damaged in warehouse"},
+                        {"name": "Vendor Return", "description": "Items returned to vendor"},
+                        {"name": "Customer Return", "description": "Items returned by customer"}
+                    ]
+                    
+                    for reason_data in default_reasons:
+                        reason = AdjustmentReason(
+                            name=reason_data["name"],
+                            description=reason_data["description"],
+                            is_active=True,
+                            created_by=admin_user
+                        )
+                        reason.save()
+                    print(f"Created default adjustment reasons in tenant schema {tenant.schema_name}")
+                    
+                except Exception as e:
+                    import traceback
+                    print(f"Error initializing inventory data: {str(e)}")
+                    traceback.print_exc()
+                    # Don't fail tenant creation if inventory initialization fails
+                
                 # If a CRM client is selected, create a TenantCrmClient entry
                 if client:
                     try:

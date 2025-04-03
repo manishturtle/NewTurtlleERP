@@ -66,7 +66,8 @@ class TenantRoutingMiddleware(MiddlewareMixin):
         if (len(path_parts) > 3 and 
             path_parts[1] == 'api' and 
             len(path_parts) > 2 and path_parts[2] and
-            len(path_parts) > 3 and (path_parts[3] == 'tenant-admin' or path_parts[3] == 'tenant' or path_parts[3] == 'tenant-admin-roles')):
+            len(path_parts) > 3 and (path_parts[3] == 'tenant-admin' or path_parts[3] == 'tenant' or 
+                                    path_parts[3] == 'tenant-admin-roles' or path_parts[3] == 'inventory')):
             
             tenant_slug = path_parts[2]
             logger.info(f"Detected tenant pattern in URL: {path}")

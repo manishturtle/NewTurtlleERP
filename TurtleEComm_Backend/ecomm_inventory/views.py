@@ -11,6 +11,7 @@ from rest_framework.views import APIView
 from django.db import transaction
 from django.db.models import F, ExpressionWrapper, fields
 from django.utils import timezone
+from django.db import connection
 
 from .models import (
     FulfillmentLocation,
@@ -40,6 +41,9 @@ from rest_framework_csv.renderers import CSVRenderer
 from datetime import datetime
 from .services import perform_inventory_adjustment, update_serialized_status, reserve_serialized_item, ship_serialized_item, receive_serialized_item, find_available_serial_for_reservation
 
+# Import tenant-specific permissions
+from ecomm_tenant.ecomm_tenant_admins.permissions import IsTenantAdmin, IsCurrentTenantAdmin, HasTenantPermission
+
 # Create your views here.
 
 class StandardResultsSetPagination(PageNumberPagination):
@@ -47,7 +51,69 @@ class StandardResultsSetPagination(PageNumberPagination):
     page_size_query_param = 'page_size'
     max_page_size = 100
 
-class FulfillmentLocationViewSet(viewsets.ModelViewSet):
+# Base class for tenant-aware viewsets
+class TenantAwareViewSet(viewsets.ModelViewSet):
+    """
+    Base viewset that ensures all operations are tenant-aware.
+    This class ensures that data is properly isolated per tenant.
+    """
+    
+    def get_queryset(self):
+        """
+        Return queryset for the current tenant.
+        The tenant context is set by the TenantRoutingMiddleware.
+        """
+        # Get the base queryset from the parent class
+        queryset = super().get_queryset()
+        
+        # Log current tenant context for debugging
+        if hasattr(self.request, 'tenant_slug'):
+            print(f"Fetching data for tenant: {self.request.tenant_slug}")
+        
+        # No need to do any schema-specific filtering since Django Tenants handles this
+        # automatically by setting the connection.schema_name
+        return queryset
+    
+    def perform_create(self, serializer):
+        """
+        Perform create operation in the context of the current tenant.
+        """
+        # Check if we have tenant information in the request
+        tenant_slug = self.request.tenant_slug if hasattr(self.request, 'tenant_slug') else None
+        
+        # Log the tenant context for debugging
+        print(f"Creating object in tenant: {tenant_slug}, schema: {connection.schema_name}")
+        
+        # Save the object directly to the tenant's schema
+        serializer.save()
+    
+    def perform_update(self, serializer):
+        """
+        Perform update operation in the context of the current tenant.
+        """
+        # Check if we have tenant information in the request
+        tenant_slug = self.request.tenant_slug if hasattr(self.request, 'tenant_slug') else None
+        
+        # Log the tenant context for debugging
+        print(f"Updating object in tenant: {tenant_slug}, schema: {connection.schema_name}")
+        
+        # Save the object directly to the tenant's schema
+        serializer.save()
+    
+    def perform_destroy(self, instance):
+        """
+        Perform destroy operation in the context of the current tenant.
+        """
+        # Check if we have tenant information in the request
+        tenant_slug = self.request.tenant_slug if hasattr(self.request, 'tenant_slug') else None
+        
+        # Log the tenant context for debugging
+        print(f"Deleting object in tenant: {tenant_slug}, schema: {connection.schema_name}")
+        
+        # Delete the object directly from the tenant's schema
+        instance.delete()
+
+class FulfillmentLocationViewSet(TenantAwareViewSet):
     """
     API endpoint that allows Fulfillment Locations to be viewed or edited.
     
@@ -103,7 +169,7 @@ class FulfillmentLocationViewSet(viewsets.ModelViewSet):
             )
         instance.delete()
 
-class AdjustmentReasonViewSet(viewsets.ModelViewSet):
+class AdjustmentReasonViewSet(TenantAwareViewSet):
     """
     API endpoint for managing Inventory Adjustment Reasons.
     
@@ -155,7 +221,7 @@ class AdjustmentReasonViewSet(viewsets.ModelViewSet):
             )
         instance.delete()
 
-class InventoryViewSet(viewsets.ModelViewSet):
+class InventoryViewSet(TenantAwareViewSet):
     """
     API endpoint for managing Inventory levels.
     
@@ -473,11 +539,11 @@ class InventoryViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-class InventoryAdjustmentViewSet(viewsets.ModelViewSet):
+class InventoryAdjustmentViewSet(TenantAwareViewSet):
     """
     API endpoint for creating manual Inventory Adjustments
     and listing adjustment history for a specific inventory item.
-
+    
     POST /api/v1/inventory-adjustments/ - Create a new adjustment.
     GET /api/v1/inventory/{inventory_pk}/adjustments/ - List history for an inventory item.
     """
@@ -516,7 +582,7 @@ class InventoryAdjustmentViewSet(viewsets.ModelViewSet):
                 expiry_date=expiry_date
             )
 
-class SerializedInventoryViewSet(viewsets.ModelViewSet):
+class SerializedInventoryViewSet(TenantAwareViewSet):
     """
     API endpoint for viewing and updating the status of Serialized Inventory items.
     Creation/Deletion might be handled by other processes (e.g., receiving, shipping).
@@ -594,7 +660,7 @@ class SerializedInventoryViewSet(viewsets.ModelViewSet):
         except DjangoValidationError as e:
             raise DRFValidationError(detail=str(e))
 
-class LotViewSet(viewsets.ModelViewSet):
+class LotViewSet(TenantAwareViewSet):
     """
     API endpoint for managing Inventory Lots.
     
@@ -688,6 +754,10 @@ class AdjustmentTypeView(APIView):
         Return a list of all adjustment types.
         Each type includes a code and display name.
         """
+        # Log the tenant context for debugging
+        tenant_slug = request.tenant_slug if hasattr(request, 'tenant_slug') else None
+        print(f"Getting adjustment types in tenant: {tenant_slug}, schema: {connection.schema_name}")
+        
         adjustment_types = [
             {'code': code, 'name': name}
             for code, name in AdjustmentType.choices
@@ -703,6 +773,10 @@ class InventoryImportView(APIView):
     parser_classes = [MultiPartParser, FormParser]
     
     def post(self, request, format=None):
+        # Log the tenant context for debugging
+        tenant_slug = request.tenant_slug if hasattr(request, 'tenant_slug') else None
+        print(f"Importing inventory in tenant: {tenant_slug}, schema: {connection.schema_name}")
+        
         serializer = InventoryImportSerializer(data=request.data)
         if serializer.is_valid():
             csv_file = serializer.validated_data['file']
