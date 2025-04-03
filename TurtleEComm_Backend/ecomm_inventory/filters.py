@@ -166,7 +166,7 @@ class SerializedInventoryFilter(django_filters.FilterSet):
         choices=SerialNumberStatus.choices,
         label='Status'
     )
-    received_date = django_filters.DateFromToRangeFilter()
+    created_at = django_filters.DateFromToRangeFilter()
 
     class Meta:
         model = SerializedInventory

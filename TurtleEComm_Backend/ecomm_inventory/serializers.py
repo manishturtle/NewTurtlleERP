@@ -159,7 +159,7 @@ class InventorySerializer(serializers.ModelSerializer):
             'non_saleable_quantity', 'on_order_quantity',
             'in_transit_quantity', 'returned_quantity', 
             'hold_quantity', 'backorder_quantity',
-            'low_stock_threshold', 'last_updated',
+            'low_stock_threshold', 'updated_at',
             'available_to_promise', 'total_available',
             'total_unavailable', 'stock_status'
         ]
@@ -169,7 +169,7 @@ class InventorySerializer(serializers.ModelSerializer):
             'non_saleable_quantity', 'on_order_quantity',
             'in_transit_quantity', 'returned_quantity', 
             'hold_quantity', 'backorder_quantity',
-            'low_stock_threshold', 'last_updated',
+            'low_stock_threshold', 'updated_at',
             'total_available', 'total_unavailable', 'stock_status'
         ]
 
@@ -220,11 +220,11 @@ class SerializedInventorySerializer(serializers.ModelSerializer):
         model = SerializedInventory
         fields = [
             'id', 'product', 'location', 'inventory_record', 'serial_number',
-            'status', 'status_display', 'notes', 'received_date', 'last_updated'
+            'status', 'status_display', 'notes', 'created_at', 'updated_at'
         ]
         read_only_fields = [
             'id', 'product', 'location', 'inventory_record',
-            'serial_number', 'received_date', 'last_updated'
+            'serial_number', 'created_at', 'updated_at'
         ]
 
     def validate_status(self, value):
@@ -251,12 +251,12 @@ class LotSerializer(serializers.ModelSerializer):
         model = Lot
         fields = [
             'id', 'product', 'location', 'inventory_record', 'lot_number',
-            'quantity', 'expiry_date', 'received_date', 'created_at', 
-            'last_updated', 'days_until_expiry'
+            'quantity', 'expiry_date', 'created_at', 'updated_at', 
+            'days_until_expiry'
         ]
         read_only_fields = [
             'id', 'product', 'location', 'inventory_record', 'lot_number',
-            'received_date', 'created_at', 'last_updated'
+            'created_at', 'updated_at'
         ]  # Only 'quantity' and 'expiry_date' are writable
 
     def validate_quantity(self, value):

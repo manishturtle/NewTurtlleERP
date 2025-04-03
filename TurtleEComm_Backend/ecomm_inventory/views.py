@@ -614,7 +614,7 @@ class SerializedInventoryViewSet(TenantAwareViewSet):
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_class = SerializedInventoryFilter
     search_fields = ['serial_number', 'product__sku', 'product__name', 'location__name']
-    ordering_fields = ['serial_number', 'product__name', 'location__name', 'status', 'received_date', 'last_updated']
+    ordering_fields = ['serial_number', 'product__name', 'location__name', 'status', 'created_at', 'updated_at']
     ordering = ['product__name', 'serial_number']
 
     # No need for get_queryset method as TenantViewMixin handles tenant filtering
@@ -705,7 +705,7 @@ class LotViewSet(TenantAwareViewSet):
     search_fields = ['lot_number', 'product__sku', 'product__name', 'location__name']
     ordering_fields = [
         'lot_number', 'product__name', 'location__name',
-        'quantity', 'expiry_date', 'received_date', 'last_updated'
+        'quantity', 'expiry_date', 'created_at', 'updated_at'
     ]
     ordering = ['product__name', 'expiry_date', 'lot_number']  # Default order for FEFO
 

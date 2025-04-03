@@ -467,11 +467,7 @@ class Lot(InventoryAwareModel):
         blank=True,
         help_text="Manufacturing date for this lot"
     )
-    received_date = models.DateField(
-        default=timezone.now,
-        db_index=True,
-        help_text="Date this lot was received"
-    )
+    # Removing received_date as it's redundant with created_at from InventoryAwareModel
     cost_price_per_unit = models.DecimalField(
         max_digits=10,
         decimal_places=2,
@@ -498,7 +494,7 @@ class Lot(InventoryAwareModel):
         verbose_name = "Inventory Lot/Batch"
         verbose_name_plural = "Inventory Lots/Batches"
         unique_together = ('product', 'location', 'lot_number', 'client_id', 'status')
-        ordering = ['product', 'location', 'received_date', 'expiry_date']
+        ordering = ['product', 'location', 'created_at', 'expiry_date']
         indexes = [
             models.Index(fields=['product', 'lot_number']),
             models.Index(fields=['status', 'location']),

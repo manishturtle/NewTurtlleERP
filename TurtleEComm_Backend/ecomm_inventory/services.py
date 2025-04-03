@@ -454,7 +454,7 @@ def perform_inventory_adjustment(
             on_hold_lots = Lot.objects.filter(
                 inventory_record=inventory_locked,
                 status=LotStatus.ON_HOLD
-            ).order_by('received_date')
+            ).order_by('created_at')
             
             remaining_to_release = quantity_change
             for lot in on_hold_lots:
@@ -634,12 +634,12 @@ def find_available_serial_for_reservation(
     if not inventory.product.is_serialized:
         return None # Not applicable
 
-    # Simple: find the first available one using FIFO based on received_date.
+    # Simple: find the first available one using FIFO based on created_at.
     # Adjust order_by for LIFO or other strategies if needed.
     available_serial = SerializedInventory.objects.filter(
         inventory_record=inventory, 
         status=SerialNumberStatus.AVAILABLE
-    ).order_by('received_date').first() # Example FIFO
+    ).order_by('created_at').first() # Example FIFO
 
     return available_serial
 
@@ -697,7 +697,7 @@ def add_quantity_to_lot(
     lot_number: str,
     quantity_to_add: int,
     expiry_date: Optional[date] = None,
-    received_date: Optional[date] = None,  # Defaults to today in model
+    # Removing received_date parameter as we'll use created_at from the model
     cost_price_per_unit: Optional[Decimal] = None,  # Optional
     user: Optional[settings.AUTH_USER_MODEL] = None  # For tracking who made the change
 ) -> Lot:
@@ -710,7 +710,6 @@ def add_quantity_to_lot(
         lot_number: The lot number identifier
         quantity_to_add: The quantity to add (must be positive)
         expiry_date: Optional expiry date for the lot
-        received_date: Optional received date (defaults to today)
         cost_price_per_unit: Optional cost price per unit
         user: Optional user who performed the action
         
@@ -789,7 +788,6 @@ def add_quantity_to_lot(
                     lot_number=lot_number,
                     quantity=quantity_to_add,
                     expiry_date=expiry_date,
-                    received_date=received_date or timezone.now().date(),
                     cost_price_per_unit=cost_price_per_unit,
                     updated_by=user
                 )
@@ -814,7 +812,6 @@ def add_quantity_to_lot(
                 lot_number=lot_number,
                 quantity=quantity_to_add,
                 expiry_date=expiry_date,
-                received_date=received_date or timezone.now().date(),
                 cost_price_per_unit=cost_price_per_unit,
                 updated_by=user
             )
@@ -959,15 +956,15 @@ def find_lots_for_consumption(
     
     # Apply strategy for ordering
     if strategy == 'FEFO':
-        # Prioritize lots with earliest expiry date, then earliest received date
+        # Prioritize lots with earliest expiry date, then earliest created date
         # Handle null expiry dates (treat them as potentially non-expiring or last priority)
         lot_queryset = lot_queryset.order_by(
             F('expiry_date').asc(nulls_last=True),
-            'received_date'
+            'created_at'
         )
     elif strategy == 'FIFO':
-        # Prioritize lots with earliest received date
-        lot_queryset = lot_queryset.order_by('received_date')
+        # Prioritize lots with earliest created date
+        lot_queryset = lot_queryset.order_by('created_at')
     else:
         raise ValidationError("Invalid consumption strategy. Use 'FEFO' or 'FIFO'.")
     
@@ -1049,7 +1046,6 @@ def reserve_lot_quantity(
         lot_number=lot.lot_number,
         quantity=quantity_to_reserve,
         expiry_date=lot.expiry_date,
-        received_date=lot.received_date,
         cost_price_per_unit=lot.cost_price_per_unit,
         status=LotStatus.RESERVED,
         parent_lot=lot,
@@ -1120,7 +1116,6 @@ def release_lot_reservation(
         defaults={
             'quantity': 0,
             'expiry_date': reserved_lot.expiry_date,
-            'received_date': reserved_lot.received_date,
             'cost_price_per_unit': reserved_lot.cost_price_per_unit,
             'updated_by': user
         }
