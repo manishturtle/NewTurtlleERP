@@ -21,6 +21,9 @@ urlpatterns = [
     
     # Platform admin routes (not tenant-specific)
     path('platform-admin/api/', include('ecomm_superadmin.admin_urls', namespace='platform_admin')),
+    
+    # Add additional route for platform admin to support frontend API calls
+    path('api/platform-admin/api/users/', include('ecomm_superadmin.admin_urls', namespace='platform_admin_with_api_prefix')),
      
     # Tenant-specific API routes
     # These URL patterns will be available at the tenant level (after the tenant slug in the path)

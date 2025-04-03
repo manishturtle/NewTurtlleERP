@@ -36,7 +36,7 @@ const fetchUsers = async () => {
     const response = await fetch(`${API_BASE_URL}/platform-admin/api/users/`, {
       method: 'GET',
       headers: {
-        'Authorization': `Token ${token}`,
+        'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
       }
     });
@@ -52,7 +52,8 @@ const fetchUsers = async () => {
     const responseData = await response.json();
     console.log('Users response received:', responseData);
     
-    // Check if the response has a data property containing the array
+    // Properly extract users data from the response
+    // The backend returns { status, count, data } format
     const users = responseData.data || responseData;
     console.log('Extracted users data:', users);
     
@@ -70,6 +71,7 @@ const UsersPage = () => {
   const [error, setError] = useState(null);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   // Fetch users from the API
   useEffect(() => {
@@ -93,12 +95,30 @@ const UsersPage = () => {
     };
     
     getUsers();
-  }, []);
+  }, [refreshTrigger]); // Add refreshTrigger as a dependency to reload users when it changes
 
   // Handle create user button click
   const handleCreateUser = () => {
-    router.push('/platform-admin/users/create');
+    router.push({
+      pathname: '/platform-admin/users/create',
+      query: { refresh: true } // Pass a flag to indicate we should refresh the list after creation
+    });
   };
+
+  // Check if we need to refresh the user list (when returning from create page)
+  useEffect(() => {
+    if (router.query.refresh === 'true') {
+      // Remove the refresh query parameter to avoid infinite refreshes
+      const { refresh, ...restQuery } = router.query;
+      router.replace({
+        pathname: router.pathname,
+        query: restQuery
+      }, undefined, { shallow: true });
+      
+      // Trigger a refresh of the user list
+      setRefreshTrigger(prev => prev + 1);
+    }
+  }, [router.query]);
 
   // Handle page change
   const handleChangePage = (event, newPage) => {
