@@ -12,7 +12,7 @@ class InventoryAwareModel(models.Model):
     """
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
-    org_id = models.IntegerField(default=1)  # Keeping for backward compatibility
+    # Removing org_id as it's no longer needed
     client_id = models.IntegerField(default=1)  # New field
     company_id = models.IntegerField(default=1)  # New field
     created_by = models.ForeignKey(
@@ -84,7 +84,7 @@ class InventoryAwareModel(models.Model):
                 result = cursor.fetchone()
                 if result:
                     self.client_id = result[0]
-                    self.org_id = result[0]  # Keep org_id in sync with client_id
+                    # Removed line that kept org_id in sync with client_id
         
         # Set company_id to default value of 1 if not set
         if not self.company_id:
@@ -249,7 +249,6 @@ class Inventory(InventoryAwareModel):
         blank=True,
         validators=[MinValueValidator(0)]
     )
-    last_updated = models.DateTimeField(auto_now=True)
 
     class Meta:
         unique_together = ('product', 'location', 'client_id')
@@ -299,8 +298,7 @@ class SerializedInventory(InventoryAwareModel):
         null=True,
         help_text="Optional notes about this serial number (e.g., damage details)"
     )
-    received_date = models.DateTimeField(auto_now_add=True)
-    last_updated = models.DateTimeField(auto_now=True)
+    # Remove received_date and last_updated as they're already in InventoryAwareModel as created_at and updated_at
 
     class Meta:
         verbose_name = "Serialized Inventory Item"
@@ -402,8 +400,6 @@ class Lot(InventoryAwareModel):
         null=True,
         help_text="Optional notes about this lot"
     )
-    created_at = models.DateTimeField(auto_now_add=True)
-    last_updated = models.DateTimeField(auto_now=True)
     # parent_lot field already exists in the database
     parent_lot = models.ForeignKey(
         'self',
