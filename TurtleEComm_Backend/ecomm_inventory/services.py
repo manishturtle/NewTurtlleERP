@@ -186,8 +186,8 @@ def perform_inventory_adjustment(
                 status=SerialNumberStatus.AVAILABLE,
                 user=user
             )
-            # The receive_serialized_item function already updates the inventory stock_quantity
-            new_stock_quantity = inventory_locked.stock_quantity  # Already updated by receive_serialized_item
+            # The receive_serialized_item function already updates the inventory quantity
+            new_stock_quantity = inventory_locked.quantity  # Already updated by receive_serialized_item
         elif is_lotted_product and lot_number:
             # Use the add_quantity_to_lot function for lot-tracked products
             newly_created_or_updated_lot = add_quantity_to_lot(

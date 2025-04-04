@@ -37,8 +37,10 @@ class InventoryAwareModel(models.Model):
     def create_table_if_not_exists(cls):
         """
         Create the table in the current tenant schema if it doesn't exist.
+        Dynamically generates SQL for creating tables based on model definition.
         """
         from django.db import connection
+        from django.db import models
         import logging
         
         logger = logging.getLogger(__name__)
@@ -66,59 +68,106 @@ class InventoryAwareModel(models.Model):
             if not table_exists:
                 logger.info(f"Table {table_name} does not exist in schema {schema_name}. Creating it now.")
                 
-                # If table doesn't exist, create it directly using SQL
                 try:
-                    # Create the table based on the model definition
-                    # This is a simplified version for FulfillmentLocation
-                    if table_name == 'ecomm_inventory_fulfillmentlocation':
-                        create_table_sql = f"""
-                        CREATE TABLE "{schema_name}"."{table_name}" (
-                            "id" serial NOT NULL PRIMARY KEY,
-                            "created_at" timestamp with time zone NOT NULL,
-                            "updated_at" timestamp with time zone NOT NULL,
-                            "client_id" integer NOT NULL,
-                            "company_id" integer NOT NULL,
-                            "created_by_id" integer NULL,
-                            "updated_by_id" integer NULL,
-                            "name" varchar(255) NOT NULL,
-                            "location_type" varchar(50) NOT NULL,
-                            "address_line_1" varchar(255) NULL,
-                            "address_line_2" varchar(255) NULL,
-                            "city" varchar(100) NULL,
-                            "state_province" varchar(100) NULL,
-                            "postal_code" varchar(20) NULL,
-                            "country_code" varchar(2) NULL,
-                            "latitude" double precision NULL,
-                            "longitude" double precision NULL,
-                            "is_active" boolean NOT NULL,
-                            "notes" text NULL
-                        );
-                        """
-                        cursor.execute(create_table_sql)
+                    # Dynamically generate table creation SQL
+                    columns = []
+                    fk_constraints = []
+                    
+                    # Always add common InventoryAwareModel fields
+                    columns.extend([
+                        '"id" serial NOT NULL PRIMARY KEY',
+                        '"created_at" timestamp with time zone NOT NULL',
+                        '"updated_at" timestamp with time zone NOT NULL',
+                        '"client_id" integer NOT NULL',
+                        '"company_id" integer NOT NULL',
+                        '"created_by_id" integer NULL',
+                        '"updated_by_id" integer NULL'
+                    ])
+                    
+                    # Add foreign key constraints for created_by and updated_by
+                    fk_constraints.extend([
+                        f'ADD CONSTRAINT "{table_name}_created_by_id_fkey" '
+                        f'FOREIGN KEY ("created_by_id") REFERENCES "{schema_name}"."auth_user" ("id") '
+                        'DEFERRABLE INITIALLY DEFERRED',
+                        f'ADD CONSTRAINT "{table_name}_updated_by_id_fkey" '
+                        f'FOREIGN KEY ("updated_by_id") REFERENCES "{schema_name}"."auth_user" ("id") '
+                        'DEFERRABLE INITIALLY DEFERRED'
+                    ])
+                    
+                    # Dynamically add model-specific fields
+                    for field in cls._meta.fields:
+                        # Skip fields already added or primary key
+                        if field.column in [col.split()[0].strip('"') for col in columns] or field.primary_key:
+                            continue
                         
-                        # Add foreign key constraints
-                        fk_sql = f"""
-                        ALTER TABLE "{schema_name}"."{table_name}" 
-                        ADD CONSTRAINT "ecomm_inventory_fulfillmentlocation_created_by_id_fkey" 
-                        FOREIGN KEY ("created_by_id") REFERENCES "{schema_name}"."auth_user" ("id") DEFERRABLE INITIALLY DEFERRED;
+                        # Map Django field types to PostgreSQL types
+                        if isinstance(field, models.IntegerField):
+                            col_type = 'integer'
+                        elif isinstance(field, models.PositiveIntegerField):
+                            col_type = 'integer CHECK (value >= 0)'
+                        elif isinstance(field, models.CharField):
+                            col_type = f'varchar({field.max_length or 255})'
+                        elif isinstance(field, models.TextField):
+                            col_type = 'text'
+                        elif isinstance(field, models.DateTimeField):
+                            col_type = 'timestamp with time zone'
+                        elif isinstance(field, models.DateField):
+                            col_type = 'date'
+                        elif isinstance(field, models.BooleanField):
+                            col_type = 'boolean'
+                        elif isinstance(field, models.DecimalField):
+                            col_type = f'numeric({field.max_digits or 10},{field.decimal_places or 2})'
+                        elif isinstance(field, (models.ForwardManyToOneDescriptor, models.ForwardOneToOneDescriptor, models.ReverseOneToOneDescriptor)):
+                            # Foreign key
+                            related_table = field.related_model._meta.db_table
+                            col_type = 'integer'
+                            fk_constraints.append(
+                                f'ADD CONSTRAINT "{table_name}_{field.column}_fkey" '
+                                f'FOREIGN KEY ("{field.column}") REFERENCES "{schema_name}"."{related_table}" ("id") '
+                                'DEFERRABLE INITIALLY DEFERRED'
+                            )
+                        elif isinstance(field, models.ForeignKey):
+                            # Foreign key
+                            related_table = field.related_model._meta.db_table
+                            col_type = 'integer'
+                            fk_constraints.append(
+                                f'ADD CONSTRAINT "{table_name}_{field.column}_fkey" '
+                                f'FOREIGN KEY ("{field.column}") REFERENCES "{schema_name}"."{related_table}" ("id") '
+                                'DEFERRABLE INITIALLY DEFERRED'
+                            )
+                        else:
+                            # Fallback for unsupported types
+                            col_type = 'text'
                         
-                        ALTER TABLE "{schema_name}"."{table_name}" 
-                        ADD CONSTRAINT "ecomm_inventory_fulfillmentlocation_updated_by_id_fkey" 
-                        FOREIGN KEY ("updated_by_id") REFERENCES "{schema_name}"."auth_user" ("id") DEFERRABLE INITIALLY DEFERRED;
-                        """
+                        # Determine nullability
+                        null_constraint = 'NULL' if field.null else 'NOT NULL'
+                        
+                        # Add column definition
+                        columns.append(f'"{field.column}" {col_type} {null_constraint}')
+                    
+                    # Create table SQL
+                    create_table_sql = f"""
+                    CREATE TABLE "{schema_name}"."{table_name}" (
+                        {','.join(columns)}
+                    );
+                    """
+                    
+                    # Execute table creation
+                    cursor.execute(create_table_sql)
+                    
+                    # Add foreign key constraints
+                    for constraint in fk_constraints:
                         try:
-                            cursor.execute(fk_sql)
+                            cursor.execute(f"""
+                            ALTER TABLE "{schema_name}"."{table_name}" 
+                            {constraint};
+                            """)
                         except Exception as e:
-                            logger.warning(f"Could not create foreign key constraints: {str(e)}")
-                        
-                        logger.info(f"Successfully created table {table_name} in schema {schema_name}")
-                        return True
-                    else:
-                        # For other tables, try running migrations
-                        from django.core.management import call_command
-                        logger.info("Attempting to run migrations for inventory app")
-                        call_command('migrate', 'ecomm_inventory', interactive=False, verbosity=0)
-                        return True
+                            logger.warning(f"Could not create foreign key constraint: {str(e)}")
+                    
+                    logger.info(f"Successfully created table {table_name} in schema {schema_name}")
+                    return True
+                
                 except Exception as e:
                     logger.error(f"Error creating table {table_name} in schema {schema_name}: {str(e)}")
                     return False
@@ -126,6 +175,7 @@ class InventoryAwareModel(models.Model):
                 logger.info(f"Table {table_name} already exists in schema {schema_name}")
         
         return True
+
 
     @classmethod
     def get_db_table(cls):

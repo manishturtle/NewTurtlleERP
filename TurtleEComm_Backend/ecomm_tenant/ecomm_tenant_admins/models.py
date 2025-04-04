@@ -1,12 +1,14 @@
-from django.db import models
+from django.db import models, connection
 from django.conf import settings
 from django.utils import timezone
 from datetime import timedelta
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin, BaseUserManager
 from django.contrib.auth.models import Group, Permission
 from django.utils.translation import gettext_lazy as _
+import logging
 
 # Create your models here.
+logger = logging.getLogger(__name__)
 
 class TenantUserManager(BaseUserManager):
     """
@@ -106,6 +108,48 @@ class TenantUser(AbstractBaseUser, PermissionsMixin):
         verbose_name_plural = _('tenant users')
         ordering = ['email']
         db_table = 'ecomm_tenant_admins_tenantuser'
+        
+    @classmethod
+    def create_table_if_not_exists(cls):
+        """
+        Create the table in the current tenant schema if it doesn't exist.
+        """
+        schema_name = connection.schema_name
+        table_name = cls._meta.db_table
+        
+        with connection.cursor() as cursor:
+            # Check if the table exists
+            query = """
+                SELECT EXISTS (
+                    SELECT FROM information_schema.tables 
+                    WHERE table_schema = %s
+                    AND table_name = %s
+                );
+            """
+            cursor.execute(query, [schema_name, table_name])
+            table_exists = cursor.fetchone()[0]
+            
+            if not table_exists:
+                logger.info(f"Creating table {table_name} in schema {schema_name}")
+                # Create the table using Django's migration system
+                from django.core.management import call_command
+                try:
+                    # Create the auth tables first if they don't exist
+                    cursor.execute(query, [schema_name, 'auth_user'])
+                    auth_exists = cursor.fetchone()[0]
+                    if not auth_exists:
+                        # Create auth tables
+                        cursor.execute(f"SET search_path TO {schema_name}, public;")
+                        call_command('migrate', 'auth', verbosity=0)
+                    
+                    # Create the tenant admin tables
+                    cursor.execute(f"SET search_path TO {schema_name}, public;")
+                    call_command('migrate', 'ecomm_tenant_admins', verbosity=0)
+                    return True
+                except Exception as e:
+                    logger.error(f"Error creating table {table_name}: {str(e)}")
+                    return False
+            return True
     
     def __str__(self):
         return self.email
@@ -144,6 +188,41 @@ class UserProfile(models.Model):
     created_by = models.CharField(max_length=255, null=True, blank=True, help_text="User who created this record")
     updated_by = models.CharField(max_length=255, null=True, blank=True, help_text="User who last updated this record")
     
+    @classmethod
+    def create_table_if_not_exists(cls):
+        """
+        Create the table in the current tenant schema if it doesn't exist.
+        """
+        schema_name = connection.schema_name
+        table_name = cls._meta.db_table
+        
+        with connection.cursor() as cursor:
+            query = """
+                SELECT EXISTS (
+                    SELECT FROM information_schema.tables 
+                    WHERE table_schema = %s
+                    AND table_name = %s
+                );
+            """
+            cursor.execute(query, [schema_name, table_name])
+            table_exists = cursor.fetchone()[0]
+            
+            if not table_exists:
+                logger.info(f"Creating table {table_name} in schema {schema_name}")
+                try:
+                    # Ensure TenantUser table exists first
+                    TenantUser.create_table_if_not_exists()
+                    
+                    # Create this table using Django's migration system
+                    cursor.execute(f"SET search_path TO {schema_name}, public;")
+                    from django.core.management import call_command
+                    call_command('migrate', 'ecomm_tenant_admins', verbosity=0)
+                    return True
+                except Exception as e:
+                    logger.error(f"Error creating table {table_name}: {str(e)}")
+                    return False
+            return True
+    
     def __str__(self):
         if self.nationality:
             return f"{self.user.email} - {self.nationality}"
@@ -161,6 +240,37 @@ class Role(models.Model):
     created_by = models.CharField(max_length=255, null=True, blank=True, help_text="User who created this record")
     updated_by = models.CharField(max_length=255, null=True, blank=True, help_text="User who last updated this record")
     
+    @classmethod
+    def create_table_if_not_exists(cls):
+        """
+        Create the table in the current tenant schema if it doesn't exist.
+        """
+        schema_name = connection.schema_name
+        table_name = cls._meta.db_table
+        
+        with connection.cursor() as cursor:
+            query = """
+                SELECT EXISTS (
+                    SELECT FROM information_schema.tables 
+                    WHERE table_schema = %s
+                    AND table_name = %s
+                );
+            """
+            cursor.execute(query, [schema_name, table_name])
+            table_exists = cursor.fetchone()[0]
+            
+            if not table_exists:
+                logger.info(f"Creating table {table_name} in schema {schema_name}")
+                try:
+                    cursor.execute(f"SET search_path TO {schema_name}, public;")
+                    from django.core.management import call_command
+                    call_command('migrate', 'ecomm_tenant_admins', verbosity=0)
+                    return True
+                except Exception as e:
+                    logger.error(f"Error creating table {table_name}: {str(e)}")
+                    return False
+            return True
+    
     def __str__(self):
         return self.name
 
@@ -176,6 +286,37 @@ class Permission(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     created_by = models.CharField(max_length=255, null=True, blank=True, help_text="User who created this record")
     updated_by = models.CharField(max_length=255, null=True, blank=True, help_text="User who last updated this record")
+    
+    @classmethod
+    def create_table_if_not_exists(cls):
+        """
+        Create the table in the current tenant schema if it doesn't exist.
+        """
+        schema_name = connection.schema_name
+        table_name = cls._meta.db_table
+        
+        with connection.cursor() as cursor:
+            query = """
+                SELECT EXISTS (
+                    SELECT FROM information_schema.tables 
+                    WHERE table_schema = %s
+                    AND table_name = %s
+                );
+            """
+            cursor.execute(query, [schema_name, table_name])
+            table_exists = cursor.fetchone()[0]
+            
+            if not table_exists:
+                logger.info(f"Creating table {table_name} in schema {schema_name}")
+                try:
+                    cursor.execute(f"SET search_path TO {schema_name}, public;")
+                    from django.core.management import call_command
+                    call_command('migrate', 'ecomm_tenant_admins', verbosity=0)
+                    return True
+                except Exception as e:
+                    logger.error(f"Error creating table {table_name}: {str(e)}")
+                    return False
+            return True
     
     def __str__(self):
         return self.name
@@ -323,6 +464,45 @@ class Company(models.Model):
         verbose_name_plural = "Companies"
         db_table = "ecomm_tenant_admins_company"
     
+    @classmethod
+    def create_table_if_not_exists(cls):
+        """
+        Create the table in the current tenant schema if it doesn't exist.
+        """
+        schema_name = connection.schema_name
+        table_name = cls._meta.db_table
+        
+        with connection.cursor() as cursor:
+            query = """
+                SELECT EXISTS (
+                    SELECT FROM information_schema.tables 
+                    WHERE table_schema = %s
+                    AND table_name = %s
+                );
+            """
+            cursor.execute(query, [schema_name, table_name])
+            table_exists = cursor.fetchone()[0]
+            
+            if not table_exists:
+                logger.info(f"Creating table {table_name} in schema {schema_name}")
+                try:
+                    # Ensure TenantCrmClient table exists first
+                    TenantCrmClient.create_table_if_not_exists()
+                    
+                    cursor.execute(f"SET search_path TO {schema_name}, public;")
+                    from django.core.management import call_command
+                    call_command('migrate', 'ecomm_tenant_admins', verbosity=0)
+                    return True
+                except Exception as e:
+                    logger.error(f"Error creating table {table_name}: {str(e)}")
+                    return False
+            return True
+    
+    class Meta:
+        verbose_name = "Company"
+        verbose_name_plural = "Companies"
+        db_table = "ecomm_tenant_admins_company"
+    
     def __str__(self):
         return self.name
 
@@ -343,6 +523,37 @@ class TenantCrmClient(models.Model):
         verbose_name = "Tenant CRM Client"
         verbose_name_plural = "Tenant CRM Clients"
         db_table = 'ecomm_tenant_admins_crmclients'
+    
+    @classmethod
+    def create_table_if_not_exists(cls):
+        """
+        Create the table in the current tenant schema if it doesn't exist.
+        """
+        schema_name = connection.schema_name
+        table_name = cls._meta.db_table
+        
+        with connection.cursor() as cursor:
+            query = """
+                SELECT EXISTS (
+                    SELECT FROM information_schema.tables 
+                    WHERE table_schema = %s
+                    AND table_name = %s
+                );
+            """
+            cursor.execute(query, [schema_name, table_name])
+            table_exists = cursor.fetchone()[0]
+            
+            if not table_exists:
+                logger.info(f"Creating table {table_name} in schema {schema_name}")
+                try:
+                    cursor.execute(f"SET search_path TO {schema_name}, public;")
+                    from django.core.management import call_command
+                    call_command('migrate', 'ecomm_tenant_admins', verbosity=0)
+                    return True
+                except Exception as e:
+                    logger.error(f"Error creating table {table_name}: {str(e)}")
+                    return False
+            return True
     
     def __str__(self):
         return self.client_name

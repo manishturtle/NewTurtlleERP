@@ -284,6 +284,7 @@ class InventoryViewSet(TenantAwareViewSet):
     - Available to promise
     
     Custom Actions:
+    - POST /api/v1/inventory/add_inventory/ - Add inventory with adjustment record
     - GET /api/v1/inventory/{id}/lots/ - List all lots for this inventory
     - POST /api/v1/inventory/{id}/add-lot/ - Add quantity to a lot
     - POST /api/v1/inventory/{id}/consume-lot/ - Consume quantity from lots
@@ -320,6 +321,144 @@ class InventoryViewSet(TenantAwareViewSet):
         queryset = queryset.select_related('product', 'location')
         
         return queryset
+        
+    @action(detail=False, methods=['post'])
+    def add_inventory(self, request, tenant_slug=None, **kwargs):
+        """
+        Add inventory quantity with adjustment record.
+        
+        Required Fields:
+          * product_id: ID of the product
+          * location_id: ID of the fulfillment location
+          * stock_quantity: Quantity to add
+          * adjustment_reason_id: ID of the adjustment reason
+        Optional Fields:
+          * notes: Additional notes about the inventory addition
+        Returns:
+          * Updated inventory record
+          * Inventory adjustment record
+        """
+        # Extract and validate required fields
+        product_id = request.data.get('product_id')
+        location_id = request.data.get('location_id')
+        stock_quantity = request.data.get('stock_quantity')
+        adjustment_reason_id = request.data.get('adjustment_reason_id')
+        notes = request.data.get('notes', '')
+        serial_number = request.data.get('serial_number')  # Extract serial_number if provided
+        
+        # Validate required fields
+        if not all([product_id, location_id, stock_quantity, adjustment_reason_id]):
+            return Response(
+                {"detail": "Missing required fields: product_id, location_id, stock_quantity, adjustment_reason_id"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            # Convert stock_quantity to integer
+            stock_quantity = int(stock_quantity)
+            
+            # Check if the product exists
+            from ecomm_product.models import Product
+            try:
+                product = Product.objects.get(id=product_id)
+            except Product.DoesNotExist:
+                return Response({"detail": f"Product with ID {product_id} not found"}, status=status.HTTP_404_NOT_FOUND)
+            
+            # Check if the location exists
+            try:
+                location = FulfillmentLocation.objects.get(id=location_id)
+            except FulfillmentLocation.DoesNotExist:
+                return Response({"detail": f"Location with ID {location_id} not found"}, status=status.HTTP_404_NOT_FOUND)
+            
+            # Check if the adjustment reason exists or create it
+            try:
+                reason = AdjustmentReason.objects.get(id=adjustment_reason_id)
+            except AdjustmentReason.DoesNotExist:
+                reason = AdjustmentReason.objects.create(
+                    id=adjustment_reason_id,
+                    name="Initial Stock",
+                    description="Initial inventory receipt",
+                    is_active=True,
+                    client_id=1,
+                    company_id=1
+                )
+            
+            # Check if the product is serialized and requires a serial number
+            if product.is_serialized and not serial_number:
+                return Response({"detail": ["Serial number is required for ADD adjustment on serialized products"]}, 
+                               status=status.HTTP_400_BAD_REQUEST)
+            
+            # Use direct SQL to update or create inventory record
+            from django.db import connection
+            with connection.cursor() as cursor:
+                # Check if inventory record exists
+                cursor.execute(
+                    "SELECT id, stock_quantity FROM ecomm_inventory_inventory WHERE product_id = %s AND location_id = %s",
+                    [product_id, location_id]
+                )
+                inventory_record = cursor.fetchone()
+                
+                if inventory_record:
+                    # Update existing inventory record
+                    inventory_id = inventory_record[0]
+                    current_stock = inventory_record[1] or 0
+                    new_stock = current_stock + stock_quantity
+                    
+                    cursor.execute(
+                        "UPDATE ecomm_inventory_inventory SET stock_quantity = %s, updated_at = NOW() WHERE id = %s",
+                        [new_stock, inventory_id]
+                    )
+                else:
+                    # First, get the next ID from the sequence
+                    cursor.execute("SELECT nextval('ecomm_inventory_inventory_id_seq')")
+                    next_id = cursor.fetchone()[0]
+                    
+                    # Create new inventory record with the next ID from sequence
+                    cursor.execute(
+                        """
+                        INSERT INTO ecomm_inventory_inventory 
+                        (id, product_id, location_id, stock_quantity, reserved_quantity, non_saleable_quantity, 
+                        on_order_quantity, in_transit_quantity, returned_quantity, hold_quantity, 
+                        backorder_quantity, low_stock_threshold, client_id, company_id, created_at, updated_at)
+                        VALUES (%s, %s, %s, %s, 0, 0, 0, 0, 0, 0, 0, 5, 1, 1, NOW(), NOW())
+                        RETURNING id
+                        """,
+                        [next_id, product_id, location_id, stock_quantity]
+                    )
+                    inventory_id = cursor.fetchone()[0]
+                    new_stock = stock_quantity
+                
+                # Create adjustment record
+                cursor.execute(
+                    """
+                    INSERT INTO ecomm_inventory_inventoryadjustment
+                    (inventory_id, adjustment_type, quantity_change, reason_id, notes, 
+                    new_stock_quantity, timestamp, client_id, company_id, created_at, updated_at, created_by_id)
+                    VALUES (%s, %s, %s, %s, %s, %s, NOW(), 1, 1, NOW(), NOW(), %s)
+                    RETURNING id
+                    """,
+                    [inventory_id, 'ADD', stock_quantity, reason.id, notes, new_stock, request.user.id if hasattr(request, 'user') else None]
+                )
+                adjustment_id = cursor.fetchone()[0]
+            
+            # Get the updated inventory record
+            inventory = Inventory.objects.get(id=inventory_id)
+            adjustment = InventoryAdjustment.objects.get(id=adjustment_id)
+            
+            # Return the updated inventory and adjustment record
+            return Response({
+                'inventory': InventorySerializer(inventory).data,
+                'adjustment': InventoryAdjustmentSerializer(adjustment).data
+            }, status=status.HTTP_200_OK)
+            
+        except Product.DoesNotExist:
+            return Response({"detail": f"Product with ID {product_id} not found"}, status=status.HTTP_404_NOT_FOUND)
+        except FulfillmentLocation.DoesNotExist:
+            return Response({"detail": f"Location with ID {location_id} not found"}, status=status.HTTP_404_NOT_FOUND)
+        except AdjustmentReason.DoesNotExist:
+            return Response({"detail": f"Adjustment reason with ID {adjustment_reason_id} not found"}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
     
     @action(detail=True, methods=['get'])
     def lots(self, request, pk=None):

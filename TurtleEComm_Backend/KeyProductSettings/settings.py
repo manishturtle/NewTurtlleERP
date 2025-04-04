@@ -44,8 +44,7 @@ SHARED_APPS = (
     'rest_framework',
     'rest_framework.authtoken',     # Links to ecomm_superadmin.User (shared)
     'rest_framework_simplejwt', # Links to ecomm_superadmin.User (shared)
-        'ecomm_inventory',
-    'ecomm_product',  # Product management app
+  
     
 )
 
@@ -61,6 +60,8 @@ TENANT_APPS = (
     #'rest_framework_simplejwt',
     #'corsheaders',
     'ecomm_tenant.ecomm_tenant_admins',
+    'ecomm_inventory',
+    'ecomm_product',  # Product management app
     # 'ecomm_tenant_crmclients',  # Commented out non-existent app
 )
 
