@@ -1,0 +1,90 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Set Up Two-Factor Authentication</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            -moz-box-sizing: border-box;
+        }
+        html, body {
+            background: #eeeeee;
+            font-family: 'Open Sans', sans-serif, Helvetica, Arial;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: #ffffff;
+            padding: 20px;
+        }
+        .qr-code {
+            text-align: center;
+            margin: 20px 0;
+        }
+        .qr-code img {
+            max-width: 200px;
+        }
+        .steps {
+            margin: 20px 0;
+        }
+        .step {
+            margin: 15px 0;
+            padding-left: 20px;
+        }
+        .note {
+            background: #f8f9fa;
+            padding: 15px;
+            border-left: 4px solid #007bff;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Set Up Two-Factor Authentication</h1>
+        
+        <p>Hi {username},</p>
+        
+        <p>To enhance the security of your account, we're helping you set up two-factor authentication (2FA). Follow these steps to complete the setup:</p>
+        
+        <div class="steps">
+            <div class="step">
+                <h3>1. Install an Authenticator App</h3>
+                <p>If you haven't already, install one of these authenticator apps on your mobile device:</p>
+                <ul>
+                    <li>Google Authenticator</li>
+                    <li>Microsoft Authenticator</li>
+                    <li>Authy</li>
+                </ul>
+            </div>
+            
+            <div class="step">
+                <h3>2. Scan the QR Code</h3>
+                <p>Open your authenticator app and scan this QR code:</p>
+                <div class="qr-code">
+                    <img src="data:image/png;base64,{qr_code}" alt="QR Code for 2FA Setup">
+                </div>
+            </div>
+            
+            <div class="step">
+                <h3>3. Verify Setup</h3>
+                <p>After scanning, your app will show a {digits}-digit code that changes every {interval} seconds. Enter this code on the verification page to complete the setup.</p>
+            </div>
+        </div>
+        
+        <div class="note">
+            <strong>Important:</strong>
+            <ul>
+                <li>Keep your authenticator app safe and backed up</li>
+                <li>Store your backup codes in a secure location</li>
+                <li>You'll need to enter a new code each time you sign in</li>
+            </ul>
+        </div>
+        
+        <p>If you need help or have questions, please contact our support team.</p>
+        
+        <p>Best regards,<br>The {issuer} Team</p>
+    </div>
+</body>
+</html>

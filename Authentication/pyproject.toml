@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "auth_utils"
+version = "0.1.0"
+description = "A stateless user management library for Django applications"
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "bcrypt>=4.0.0",
+    "pyotp>=2.8.0",
+    "PyJWT>=2.8.0",
+    "python-decouple>=3.8.0",
+    "django>=4.2.0"
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest>=7.0.0"
+]
